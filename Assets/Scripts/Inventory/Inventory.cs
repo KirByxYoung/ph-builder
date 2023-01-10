@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
 
-public class Inventory : IRemoveOnlyInventory
+public class Inventory : IReadOnlyInventory
 {
     private List<Cell> _cells = new List<Cell>();
 

@@ -1,43 +1,73 @@
 using System.Collections.Generic;
 using UnityEngine;
+using IJunior.TypedScenes;
+using System;
+using System.Collections;
+using System.Linq;
 
-public class Castle : MonoBehaviour
+[RequireComponent(typeof(SphereCollider))]
+public class Castle : MonoBehaviour, ISceneLoadHandler<ICastleLevel>
 {
-    [SerializeField] private List<LevelSettings> _levels;
-
     private Inventory _inventory = new Inventory();
+    private WaitForSeconds _delay = new WaitForSeconds(0.3f);
+    private SphereCollider _collider;
 
-    private int _currentLevel;
-    private int _needUpgrades;
+    private ICastleLevel _level;
+    private Queue<LevelItemsStorage> _levelItemsStorage;
 
-    public IRemoveOnlyInventory Inventory => _inventory;
+    public IReadOnlyInventory Inventory => _inventory;
 
-    private void Awake()
+    public event Action<Cell> WritedCells;
+    public event Action Finished;
+    public event Action Upgraded;
+
+    private void Start()
     {
-        //OnScenLoad
-         _currentLevel = 0;
-        _needUpgrades = 2;
-
-        WriteCells(GetNextLevel(_currentLevel));
+        _collider = GetComponent<SphereCollider>();
+        CallAction();
     }
 
-    public void TryUpgrade()
+    private void OnTriggerEnter(Collider other)
     {
-        if (_inventory.IsEmpty)
+        if (other.TryGetComponent(out Player player))
         {
-            if (_needUpgrades <= 0)
+            StartCoroutine(TakeItem(player));
+        }
+    }
+
+    public IEnumerator TakeItem(Player player)
+    { 
+        foreach (var cell in _inventory.Cells.ToArray())
+        {
+            while (cell.Items.Count > 0 && player.TrySendItem(cell.ItemType))
             {
-                Debug.Log("Completed");
-            }
-            else
-            {
-                Debug.Log("I'am upgrading");
-                WriteCells(GetNextLevel(_currentLevel));
+                yield return _delay;
+                player.RemoveItem(cell.ItemType, transform.position);
+                RemoveItem(cell.ItemType);
             }
         }
     }
 
-    private void WriteCells(LevelSettings levelSettings)
+    public void OnSceneLoaded(ICastleLevel level)
+    {
+        _level = level;
+        _levelItemsStorage = new Queue<LevelItemsStorage>(level.LevelItemsStorages);
+
+        WriteCells(_levelItemsStorage.Dequeue());
+    }
+
+    public void CallAction()
+    {
+        foreach (var cell in _inventory.Cells)
+            WritedCells?.Invoke(cell);
+    }
+
+    public ICastleLevel GetCastleLevel()
+    {
+        return _level;
+    }
+
+    private void WriteCells(LevelItemsStorage levelSettings)
     {
         _inventory.Capacity = levelSettings.Items.Count;
 
@@ -45,14 +75,33 @@ public class Castle : MonoBehaviour
             _inventory.AddItem(item);
     }
 
-    private LevelSettings GetNextLevel(int numberCurrentLevel)
+    public bool TryUpgrade()
     {
-        if (_levels.Count <= numberCurrentLevel)
-            throw new UnityException("Index was out range");
+        if (_inventory.IsEmpty)
+        {
+            if (_levelItemsStorage.Count <= 0)
+            {
+                Finished?.Invoke();
+            }
+            else
+            {
+                _collider.enabled = false;
+                WriteCells(_levelItemsStorage.Dequeue());
+                CallAction();
+                Upgraded?.Invoke();
+                _collider.enabled = true;
+            }
 
-        _currentLevel++;
-        _needUpgrades--;
+            return true;
+        }
+        else
+        {
+            return false;
+        }
+    }
 
-        return _levels[numberCurrentLevel];
+    private void RemoveItem(Type itemType)
+    {
+        _inventory.RemoveItem(itemType);
     }
 }

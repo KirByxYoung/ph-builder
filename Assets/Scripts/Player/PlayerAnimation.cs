@@ -8,6 +8,7 @@ public class PlayerAnimation : MonoBehaviour
 
     private int _runHash;
     private int _stopHash;
+    private int _danceHash;
 
     private void Awake()
     {
@@ -16,6 +17,7 @@ public class PlayerAnimation : MonoBehaviour
 
         _runHash = Animator.StringToHash("Run");
         _stopHash = Animator.StringToHash("Stop");
+        _danceHash = Animator.StringToHash("Dance");
     }
 
     private void OnEnable()
@@ -28,6 +30,11 @@ public class PlayerAnimation : MonoBehaviour
     {
         _movement.Move -= OnMove;
         _movement.Stopped -= OnStopped;
+    }
+
+    public void Dance()
+    {
+        _animator.SetTrigger(_danceHash);
     }
 
     private void OnMove()

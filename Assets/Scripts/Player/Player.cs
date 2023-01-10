@@ -1,5 +1,4 @@
 using System;
-using System.Collections;
 using System.Linq;
 using UnityEngine;
 
@@ -8,81 +7,36 @@ public class Player : MonoBehaviour
     [SerializeField] private Backpack _backpack;
 
     private Inventory _inventory = new Inventory(20);
-    private WaitForSeconds _delay = new WaitForSeconds(.3f);
 
-    private bool _inCastle = false;
+    public bool InCastle { get; private set; }
 
     public Inventory Inventory => _inventory;
+
+    public event Action ItemPickUped;
  
     private void OnTriggerEnter(Collider other)
     {
         if (other.TryGetComponent(out Item item))
         {
-            if (_inventory.IsFull == false)
+            if (_inventory.IsFull == false && item.CanPickUp)
             {
+                ItemPickUped?.Invoke();
                 _inventory.AddItem(item);
                 _backpack.InitItem(item);
             }
-            else
-            {
-
-            }
-        }
-
-        if (other.TryGetComponent(out Castle castle))
-        {
-            _inCastle = true;
-            StartCoroutine(GiveItems(castle));
         }
     }
-
-    private Type GetItemType(IRemoveOnlyInventory castleInventory)
+    
+    public bool TrySendItem(Type itemType)
     {
-        if (castleInventory.Cells.Count <= 0)
-            return null;
+        Cell cell = _inventory.Cells.FirstOrDefault(cell => cell.ItemType == itemType);
 
-        foreach (var castleCell in castleInventory.Cells)
-        {
-            Type CastleItemType = castleCell.ItemType;
-
-            foreach (var cell in _inventory.Cells)
-            {
-                if (cell.ItemType == CastleItemType)
-                    return cell.ItemType;
-            }
-        }
-
-        return null;
+        return cell == null ? false : true;
     }
 
-    private void OnTriggerExit(Collider other)
+    public void RemoveItem(Type itemType, Vector3 position)
     {
-        if (other.TryGetComponent(out Castle castle))
-        {
-            _inCastle = false;
-        }
-    }
-
-    private IEnumerator GiveItems(Castle castle)
-    {
-        while (_inCastle)
-        {
-            yield return _delay;
-
-            Type itemType = GetItemType(castle.Inventory);
-
-            if (itemType == null)
-                continue;
-
-            _inventory.RemoveItem(itemType);
-            castle.Inventory.RemoveItem(itemType);
-            castle.TryUpgrade();
-
-            Vector3 newPosition = castle.transform.position;
-
-            newPosition.y = 3;
-
-            _backpack.RemoveItem(itemType, newPosition);
-        }
+        _inventory.RemoveItem(itemType);
+        _backpack.RemoveItem(itemType, position);
     }
 }

@@ -13,10 +13,12 @@ public class Backpack : MonoBehaviour
     private List<Item> _items = new List<Item>();
     private WaitForSeconds _delay = new WaitForSeconds(.5f);
 
-    float timeMoveBackpack = .3f;
-    float timeMoveCastle = 1f;
+    private float timeMoveBackpack = .3f;
+    private float timeMoveCastle = 1f;
 
-    private bool IsEven => _items.Count % 2 == 0; 
+    private bool IsEven => _items.Count % 2 == 0;
+
+    public event Action ItemTransferred;
 
     public void InitItem(Item item)
     {
@@ -24,6 +26,7 @@ public class Backpack : MonoBehaviour
         _items.Add(item);
 
         item.MoveLocal(GetPosition(IsEven), timeMoveBackpack);
+        item.CanPickUp = false;
     }
 
     public void RemoveItem(Type itemType, Vector3 position)
@@ -37,16 +40,14 @@ public class Backpack : MonoBehaviour
 
         item.Move(position, timeMoveCastle);
 
-        StartCoroutine(WaitEndMove(item));
+        GiveItem(item);
         ResetPosition();
     }
 
-    private IEnumerator WaitEndMove(Item item)
+    private void GiveItem(Item item)
     {
-        yield return _delay;
-
         item.transform.parent = _pool.transform;
-        item.gameObject.SetActive(false);
+        ItemTransferred?.Invoke();
     }
 
     private void ResetPosition()
